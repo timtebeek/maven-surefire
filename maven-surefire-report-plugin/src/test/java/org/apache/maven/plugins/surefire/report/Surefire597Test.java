@@ -53,7 +53,7 @@ public class Surefire597Test extends TestCase {
         String xml = writer.toString();
         assertThat(
                 xml,
-                containsString(toSystemNewLine("<table border=\"0\" class=\"bodyTable\">\n"
+                containsString(toSystemNewLine("<table class=\"bodyTable\">\n"
                         + "<tr class=\"a\">\n"
                         + "<th>Tests</th>\n"
                         + "<th>Errors</th>\n"
@@ -62,17 +62,17 @@ public class Surefire597Test extends TestCase {
                         + "<th>Success Rate</th>\n"
                         + "<th>Time</th></tr>\n"
                         + "<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>"
                         + "</tr>"
                         + "</table>")));
         assertThat(
                 xml,
-                containsString(toSystemNewLine("<table border=\"0\" class=\"bodyTable\">\n"
+                containsString(toSystemNewLine("<table class=\"bodyTable\">\n"
                         + "<tr class=\"a\">\n"
                         + "<th>Package</th>\n"
                         + "<th>Tests</th>\n"
@@ -82,16 +82,16 @@ public class Surefire597Test extends TestCase {
                         + "<th>Success Rate</th>\n"
                         + "<th>Time</th></tr>\n"
                         + "<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr></table>")));
         assertThat(
                 xml,
-                containsString(toSystemNewLine("<table border=\"0\" class=\"bodyTable\">\n"
+                containsString(toSystemNewLine("<table class=\"bodyTable\">\n"
                         + "<tr class=\"a\">\n"
                         + "<th>-</th>\n"
                         + "<th>Class</th>\n"
@@ -102,25 +102,25 @@ public class Surefire597Test extends TestCase {
                         + "<th>Success Rate</th>\n"
                         + "<th>Time</th></tr>\n"
                         + "<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire.MyTest\"><img src=\"images/icon_error_sml.gif\" alt=\"\" /></a></td>\n"
+                        + "<td><a href=\"#surefire.MyTest\"><img src=\"images/icon_error_sml.gif\" /></a></td>\n"
                         + "<td><a href=\"#surefire.MyTest\">MyTest</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr></table>")));
         assertThat(
                 xml,
-                containsString(toSystemNewLine("<table border=\"0\" class=\"bodyTable\">\n"
+                containsString(toSystemNewLine("<table class=\"bodyTable\">\n"
                         + "<tr class=\"a\">\n"
-                        + "<td align=\"left\"><img src=\"images/icon_error_sml.gif\" alt=\"\" /></td>\n"
+                        + "<td><img src=\"images/icon_error_sml.gif\" /></td>\n"
                         + "<td><a id=\"surefire.MyTest.test\"></a>test</td></tr>\n"
                         + "<tr class=\"b\">\n"
-                        + "<td align=\"left\">-</td>\n"
+                        + "<td>-</td>\n"
                         + "<td>java.lang.RuntimeException: java.lang.IndexOutOfBoundsException: msg</td></tr>\n"
                         + "<tr class=\"a\">\n"
-                        + "<td align=\"left\">-</td>\n"
+                        + "<td>-</td>\n"
                         + "<td>\n"
                         + "<div id=\"test-error\">surefire.MyTest:13</div></td></tr></table>")));
     }

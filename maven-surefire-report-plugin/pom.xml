@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.maven.surefire</groupId>
     <artifactId>surefire</artifactId>
-    <version>3.1.1-SNAPSHOT</version>
+    <version>3.2.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.apache.maven.plugins</groupId>
@@ -46,7 +46,7 @@
   </prerequisites>
 
   <properties>
-    <doxiaVersion>1.11.1</doxiaVersion>
+    <doxiaVersion>2.0.0-M6</doxiaVersion>
     <aetherVersion>1.0.0.v20140518</aetherVersion>
   </properties>
 
@@ -89,10 +89,12 @@
     <dependency>
       <groupId>org.apache.maven.reporting</groupId>
       <artifactId>maven-reporting-api</artifactId>
+      <version>4.0.0-M6</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.reporting</groupId>
       <artifactId>maven-reporting-impl</artifactId>
+      <version>4.0.0-M8</version>
     </dependency>
     <dependency>
       <groupId>org.fusesource.jansi</groupId>

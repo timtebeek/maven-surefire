@@ -19,16 +19,19 @@
 package org.apache.maven.plugins.surefire.report;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.util.Locale;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.LegacySupport;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.apache.maven.plugin.testing.ArtifactStubFactory;
 import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
 import org.apache.maven.plugins.surefire.report.stubs.DependencyArtifactStubFactory;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.utils.io.FileUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
@@ -42,31 +45,23 @@ import static org.hamcrest.MatcherAssert.assertThat;
  * @author <a href="mailto:aramirez@apache.org">Allan Ramirez</a>
  */
 @SuppressWarnings("checkstyle:linelength")
-public class SurefireReportMojoTest extends AbstractMojoTestCase {
+public class SurefireReportTest extends AbstractMojoTestCase {
     private ArtifactStubFactory artifactStubFactory;
-
-    // Can be removed with Doxia 2.0.0
-    private Locale origLocale;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         artifactStubFactory = new DependencyArtifactStubFactory(getTestFile("target"), true, false);
         artifactStubFactory.getWorkingDir().mkdirs();
-
-        origLocale = Locale.getDefault();
-        Locale.setDefault(Locale.ROOT);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        Locale.setDefault(origLocale);
-        super.tearDown();
+    protected File getPluginXmlFile(String projectDirName) {
+        return new File(getBasedir(), "src/test/resources/unit/" + projectDirName + "/plugin-config.xml");
     }
 
     protected SurefireReportMojo createReportMojo(File pluginXmlFile) throws Exception {
         SurefireReportMojo mojo = (SurefireReportMojo) lookupMojo("report", pluginXmlFile);
-        assertNotNull("Mojo found.", mojo);
+        assertNotNull("Mojo not found.", mojo);
 
         LegacySupport legacySupport = lookup(LegacySupport.class);
         legacySupport.setSession(newMavenSession(new MavenProjectStub()));
@@ -75,18 +70,26 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         repoSession.setLocalRepositoryManager(new SimpleLocalRepositoryManagerFactory()
                 .newInstance(repoSession, new LocalRepository(artifactStubFactory.getWorkingDir())));
 
-        // setVariableValueToObject( mojo, "session", legacySupport.getSession() );
-        setVariableValueToObject(mojo, "remoteRepositories", mojo.getProject().getRemoteArtifactRepositories());
+        List<MavenProject> reactorProjects =
+                mojo.getReactorProjects() != null ? mojo.getReactorProjects() : Collections.emptyList();
+
+        setVariableValueToObject(mojo, "mojoExecution", getMockMojoExecution());
+        // setVariableValueToObject(mojo, "session", legacySupport.getSession());
+        setVariableValueToObject(mojo, "repoSession", legacySupport.getRepositorySession());
+        setVariableValueToObject(mojo, "reactorProjects", reactorProjects);
+        setVariableValueToObject(
+                mojo, "remoteProjectRepositories", mojo.getProject().getRemoteProjectRepositories());
+        setVariableValueToObject(
+                mojo, "siteDirectory", new File(mojo.getProject().getBasedir(), "src/site"));
         return mojo;
     }
 
     public void testBasicSurefireReport() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "basic-surefire-report-test/plugin-config.xml");
+        File testPom = getPluginXmlFile("basic-surefire-report-test");
         SurefireReportMojo mojo = createReportMojo(testPom);
         File outputDir = (File) getVariableValueFromObject(mojo, "outputDirectory");
         boolean showSuccess = (Boolean) getVariableValueFromObject(mojo, "showSuccess");
         File reportsDir = (File) getVariableValueFromObject(mojo, "reportsDirectory");
-        String outputName = (String) getVariableValueFromObject(mojo, "outputName");
         File xrefLocation = (File) getVariableValueFromObject(mojo, "xrefLocation");
         boolean linkXRef = (Boolean) getVariableValueFromObject(mojo, "linkXRef");
 
@@ -96,7 +99,6 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                 new File(getBasedir() + "/src/test/resources/unit/basic-surefire-report-test/surefire-reports")
                         .getAbsolutePath(),
                 reportsDir.getAbsolutePath());
-        assertEquals("surefire-report", outputName);
         assertEquals(
                 new File(getBasedir() + "/target/site/unit/basic-surefire-report-test/xref-test").getAbsolutePath(),
                 xrefLocation.getAbsolutePath());
@@ -111,14 +113,24 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertTrue(idx >= 0);
     }
 
-    private File getUnitBaseDir() throws UnsupportedEncodingException {
-        URL resource = getClass().getResource("/unit");
-        // URLDecoder.decode necessary for JDK 1.5+, where spaces are escaped to %20
-        return new File(URLDecoder.decode(resource.getPath(), "UTF-8")).getAbsoluteFile();
+    private MojoExecution getMockMojoExecution() {
+        MojoDescriptor md = new MojoDescriptor();
+        md.setGoal("report");
+
+        MojoExecution me = new MojoExecution(md);
+
+        PluginDescriptor pd = new PluginDescriptor();
+        Plugin p = new Plugin();
+        p.setGroupId("org.apache.maven.plugins");
+        p.setArtifactId("maven-surefire-report-plugin");
+        pd.setPlugin(p);
+        md.setPluginDescriptor(pd);
+
+        return me;
     }
 
     public void testBasicSurefireReportIfShowSuccessIsFalse() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "basic-surefire-report-success-false/plugin-config.xml");
+        File testPom = getPluginXmlFile("basic-surefire-report-success-false");
         SurefireReportMojo mojo = createReportMojo(testPom);
         boolean showSuccess = (Boolean) getVariableValueFromObject(mojo, "showSuccess");
         assertFalse(showSuccess);
@@ -133,7 +145,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testBasicSurefireReportIfLinkXrefIsFalse() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "basic-surefire-report-linkxref-false/plugin-config.xml");
+        File testPom = getPluginXmlFile("basic-surefire-report-linkxref-false");
         SurefireReportMojo mojo = createReportMojo(testPom);
         boolean linkXRef = (Boolean) getVariableValueFromObject(mojo, "linkXRef");
         assertFalse(linkXRef);
@@ -148,7 +160,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testBasicSurefireReportIfReportingIsNull() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "basic-surefire-report-reporting-null/plugin-config.xml");
+        File testPom = getPluginXmlFile("basic-surefire-report-reporting-null");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report =
@@ -162,7 +174,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
 
     @SuppressWarnings("checkstyle:methodname")
     public void testBasicSurefireReport_AnchorTestCases() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "basic-surefire-report-anchor-test-cases/plugin-config.xml");
+        File testPom = getPluginXmlFile("basic-surefire-report-anchor-test-cases");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report =
@@ -179,7 +191,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testSurefireReportSingleError() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-report-single-error/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-report-single-error");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report = new File(getBasedir(), "target/site/unit/surefire-report-single-error/surefire-report.html");
@@ -189,29 +201,29 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>")));
 
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">"
+                        + "<td>"
                         + "<a href=\"#surefire.MyTest\">"
-                        + "<img src=\"images/icon_error_sml.gif\" alt=\"\" />"
+                        + "<img src=\"images/icon_error_sml.gif\" />"
                         + "</a>"
                         + "</td>\n"
                         + "<td><a href=\"#surefire.MyTest\">MyTest</a></td>\n"
@@ -219,7 +231,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
 
         assertThat(htmlContent, containsString(">surefire.MyTest:13</a>"));
@@ -266,7 +278,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testSurefireReportNestedClassTrimStackTrace() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-report-nestedClass-trimStackTrace/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-report-nestedClass-trimStackTrace");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report = new File(
@@ -277,29 +289,29 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>")));
 
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">"
+                        + "<td>"
                         + "<a href=\"#surefire.MyTest\">"
-                        + "<img src=\"images/icon_error_sml.gif\" alt=\"\" />"
+                        + "<img src=\"images/icon_error_sml.gif\" />"
                         + "</a>"
                         + "</td>\n"
                         + "<td><a href=\"#surefire.MyTest\">MyTest</a></td>\n"
@@ -307,7 +319,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(htmlContent, containsString(">surefire.MyTest:13</a>"));
 
@@ -330,7 +342,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testSurefireReportNestedClass() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-report-nestedClass/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-report-nestedClass");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report = new File(getBasedir(), "target/site/unit/surefire-report-nestedClass/surefire-report.html");
@@ -340,29 +352,29 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>")));
 
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">"
+                        + "<td>"
                         + "<a href=\"#surefire.MyTest\">"
-                        + "<img src=\"images/icon_error_sml.gif\" alt=\"\" />"
+                        + "<img src=\"images/icon_error_sml.gif\" />"
                         + "</a>"
                         + "</td>\n"
                         + "<td><a href=\"#surefire.MyTest\">MyTest</a></td>\n"
@@ -370,7 +382,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(htmlContent, containsString(">surefire.MyTest:13</a>"));
 
@@ -417,7 +429,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testSurefireReportEnclosedTrimStackTrace() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-report-enclosed-trimStackTrace/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-report-enclosed-trimStackTrace");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report =
@@ -428,29 +440,29 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>")));
 
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">"
+                        + "<td>"
                         + "<a href=\"#surefire.MyTest$A\">"
-                        + "<img src=\"images/icon_error_sml.gif\" alt=\"\" />"
+                        + "<img src=\"images/icon_error_sml.gif\" />"
                         + "</a>"
                         + "</td>\n"
                         + "<td><a href=\"#surefire.MyTest$A\">MyTest$A</a></td>\n"
@@ -458,7 +470,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
 
         assertThat(htmlContent, containsString(">surefire.MyTest$A:45</a>"));
@@ -481,7 +493,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testSurefireReportEnclosed() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-report-enclosed/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-report-enclosed");
         SurefireReportMojo mojo = createReportMojo(testPom);
         mojo.execute();
         File report = new File(getBasedir(), "target/site/unit/surefire-report-enclosed/surefire-report.html");
@@ -491,29 +503,29 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">1</td>\n"
+                        + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td>")));
 
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\"><a href=\"#surefire\">surefire</a></td>\n"
+                        + "<td><a href=\"#surefire\">surefire</a></td>\n"
                         + "<td>1</td>\n"
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
         assertThat(
                 htmlContent,
                 containsString(toSystemNewLine("<tr class=\"b\">\n"
-                        + "<td align=\"left\">"
+                        + "<td>"
                         + "<a href=\"#surefire.MyTest$A\">"
-                        + "<img src=\"images/icon_error_sml.gif\" alt=\"\" />"
+                        + "<img src=\"images/icon_error_sml.gif\" />"
                         + "</a>"
                         + "</td>\n"
                         + "<td><a href=\"#surefire.MyTest$A\">MyTest$A</a></td>\n"
@@ -521,7 +533,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
                         + "<td>1</td>\n"
                         + "<td>0</td>\n"
                         + "<td>0</td>\n"
-                        + "<td>0.0%</td>\n"
+                        + "<td>0%</td>\n"
                         + "<td>0 s</td></tr>")));
 
         assertThat(htmlContent, containsString(">surefire.MyTest$A:45</a>"));
@@ -578,7 +590,7 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
     }
 
     public void testCustomTitleAndDescriptionReport() throws Exception {
-        File testPom = new File(getUnitBaseDir(), "surefire-1183/plugin-config.xml");
+        File testPom = getPluginXmlFile("surefire-1183");
         SurefireReportMojo mojo = createReportMojo(testPom);
 
         File outputDir = (File) getVariableValueFromObject(mojo, "outputDirectory");
@@ -599,6 +611,8 @@ public class SurefireReportMojoTest extends AbstractMojoTestCase {
         assertTrue(report.exists());
 
         String htmlContent = FileUtils.fileRead(report);
-        assertTrue(htmlContent.contains("<h2><a name=\"Acceptance_Test\"></a>Acceptance Test</h2></section>"));
+        assertThat(
+                htmlContent,
+                containsString(toSystemNewLine("<section><a id=\"Acceptance_Test\"></a>\n<h1>Acceptance Test</h1>")));
     }
 }
