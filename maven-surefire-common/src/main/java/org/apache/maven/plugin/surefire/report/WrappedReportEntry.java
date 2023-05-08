@@ -20,7 +20,9 @@ package org.apache.maven.plugin.surefire.report;
 
 import javax.annotation.Nonnull;
 
+import java.text.MessageFormat;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.maven.surefire.api.report.ReportEntry;
@@ -29,7 +31,6 @@ import org.apache.maven.surefire.api.report.StackTraceWriter;
 import org.apache.maven.surefire.api.report.TestSetReportEntry;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.apache.maven.plugin.surefire.report.ReporterUtils.formatElapsedTime;
 import static org.apache.maven.surefire.api.util.internal.StringUtils.NL;
 import static org.apache.maven.surefire.shared.utils.StringUtils.isBlank;
 
@@ -140,7 +141,9 @@ public class WrappedReportEntry implements TestSetReportEntry {
     }
 
     public String elapsedTimeAsString() {
-        return formatElapsedTime(getElapsed());
+        MessageFormat format = new MessageFormat(
+                "{0,choice,0#0|0.0<{0,number,0.000}|1.0#{0,number,0.0}|1000#{0,number,0}} s", Locale.ROOT);
+        return format.format(new Object[] {getElapsed() / 1000.0f});
     }
 
     String getReportSourceName() {
@@ -171,7 +174,7 @@ public class WrappedReportEntry implements TestSetReportEntry {
     }
 
     public String getElapsedTimeVerbose() {
-        return "Time elapsed: " + elapsedTimeAsString() + " s";
+        return "Time elapsed: " + elapsedTimeAsString();
     }
 
     public String getElapsedTimeSummary() {

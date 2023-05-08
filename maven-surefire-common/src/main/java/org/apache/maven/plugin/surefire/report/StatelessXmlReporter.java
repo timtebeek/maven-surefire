@@ -387,7 +387,7 @@ public class StatelessXmlReporter implements StatelessReportEventListener<Wrappe
             ppw.addAttribute("classname", extraEscapeAttribute(className));
         }
 
-        ppw.addAttribute("time", report.elapsedTimeAsString());
+        ppw.addAttribute("time", String.valueOf(report.getElapsed() / 1000.0f));
     }
 
     private void createTestSuiteElement(XMLWriter ppw, WrappedReportEntry report, TestSetStats testSetStats)
@@ -407,7 +407,7 @@ public class StatelessXmlReporter implements StatelessReportEventListener<Wrappe
             ppw.addAttribute("group", report.getGroup());
         }
 
-        ppw.addAttribute("time", report.elapsedTimeAsString());
+        ppw.addAttribute("time", String.valueOf(report.getElapsed() / 1000.0f));
 
         ppw.addAttribute("tests", String.valueOf(testSetStats.getCompletedCount()));
 

@@ -26,8 +26,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.text.NumberFormat;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,15 +38,12 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 
 /**
  *
  */
 public final class TestSuiteXmlParser extends DefaultHandler {
-    private final NumberFormat numberFormat = NumberFormat.getInstance(ENGLISH);
-
     private final ConsoleLogger consoleLogger;
 
     private ReportTestSuite defaultSuite;
@@ -111,13 +106,11 @@ public final class TestSuiteXmlParser extends DefaultHandler {
                     case "testsuite":
                         defaultSuite = new ReportTestSuite();
                         currentSuite = defaultSuite;
-
-                        try {
-                            Number time = numberFormat.parse(attributes.getValue("time"));
-
-                            defaultSuite.setTimeElapsed(time.floatValue());
-                        } catch (NullPointerException e) {
-                            consoleLogger.error("WARNING: no time attribute found on testsuite element");
+                        String timeAsString = attributes.getValue("time");
+                        if (timeAsString != null) {
+                            defaultSuite.setTimeElapsed(Float.parseFloat(timeAsString));
+                        } else {
+                            consoleLogger.warning("No time attribute found on testsuite element");
                         }
 
                         final String name = attributes.getValue("name");
@@ -131,8 +124,6 @@ public final class TestSuiteXmlParser extends DefaultHandler {
                         classesToSuitesIndex.put(defaultSuite.getFullClassName(), suites.size() - 1);
                         break;
                     case "testcase":
-                        currentElement = new StringBuilder();
-
                         testCase = new ReportTestCase().setName(attributes.getValue("name"));
 
                         String fullClassName = attributes.getValue("classname");
@@ -149,23 +140,25 @@ public final class TestSuiteXmlParser extends DefaultHandler {
                             }
                         }
 
-                        String timeAsString = attributes.getValue("time");
-                        Number time = isBlank(timeAsString) ? 0 : numberFormat.parse(timeAsString);
+                        timeAsString = attributes.getValue("time");
+                        float time = isBlank(timeAsString) ? 0.0f : Float.parseFloat(timeAsString);
 
                         testCase.setFullClassName(currentSuite.getFullClassName())
                                 .setClassName(currentSuite.getName())
                                 .setFullName(currentSuite.getFullClassName() + "." + testCase.getName())
-                                .setTime(time.floatValue());
+                                .setTime(time);
 
                         if (currentSuite != defaultSuite) {
                             currentSuite.setTimeElapsed(testCase.getTime() + currentSuite.getTimeElapsed());
                         }
                         break;
                     case "failure":
+                        currentElement = new StringBuilder();
                         testCase.setFailure(attributes.getValue("message"), attributes.getValue("type"));
                         currentSuite.incrementNumberOfFailures();
                         break;
                     case "error":
+                        currentElement = new StringBuilder();
                         testCase.setError(attributes.getValue("message"), attributes.getValue("type"));
                         currentSuite.incrementNumberOfErrors();
                         break;
@@ -181,11 +174,14 @@ public final class TestSuiteXmlParser extends DefaultHandler {
                     case "failsafe-summary":
                         valid = false;
                         break;
+                    case "time":
+                        currentElement = new StringBuilder();
+                        break;
                     default:
                         break;
                 }
-            } catch (ParseException e) {
-                throw new SAXException(e.getMessage(), e);
+            } catch (NumberFormatException e) {
+                throw new SAXException("Failed to parse time value", e);
             }
         }
     }
@@ -206,10 +202,9 @@ public final class TestSuiteXmlParser extends DefaultHandler {
                 break;
             case "time":
                 try {
-                    defaultSuite.setTimeElapsed(
-                            numberFormat.parse(currentElement.toString()).floatValue());
-                } catch (ParseException e) {
-                    throw new SAXException(e.getMessage(), e);
+                    defaultSuite.setTimeElapsed(Float.parseFloat(currentElement.toString()));
+                } catch (NumberFormatException e) {
+                    throw new SAXException("Failed to parse time value", e);
                 }
                 break;
             default:
