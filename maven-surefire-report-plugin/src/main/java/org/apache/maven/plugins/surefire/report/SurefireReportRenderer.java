@@ -19,6 +19,8 @@
 package org.apache.maven.plugins.surefire.report;
 
 import java.io.File;
+import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -589,5 +591,21 @@ public class SurefireReportRenderer extends AbstractMavenReportRenderer {
                 + "  }" + Markup.EOL
                 + " }" + Markup.EOL
                 + " }";
+    }
+
+    public static void main(String[] args) {
+        MessageFormat format = null;
+
+        format = new MessageFormat("{0,choice,0#0%|0.0<{0,number,0.0%}|1#{0,number,0%}}", Locale.ENGLISH);
+
+        for (Float f : Arrays.asList(0f, 0.005f, 0.05f, 0.5f, 0.999f, 1f, 1.01f))
+            System.out.println(format.format(new Object[] {f}));
+        System.out.println("===");
+        format = new MessageFormat(
+                "{0,choice,0#0|0.0<{0,number,0.000}|1.0#{0,number,0.0}|1000#{0,number,0}} s", Locale.ITALY);
+
+        for (Float f : Arrays.asList(
+                0f, 0.05f, 0.999f, 1f, 1.5f, 99.9f, 100f, 100.2f, 500.3f, 999.9f, 1000f, 1000.3f, 1010.4f, 10000f))
+            System.out.println(format.format(new Object[] {f}));
     }
 }
